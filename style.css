@@ -1,0 +1,88 @@
+.lobby {
+  background-color: var(--p-2);
+  width: 100%;
+  min-width: 2160.0px;
+  min-height: 1640.0px;
+  display: flex;
+  flex-direction: column;
+}
+
+.lobby .text-wrapper {
+  margin-left: -503.0px;
+  height: 192px;
+  width: 1295px;
+  align-self: center;
+  margin-top: 132.0px;
+  font-family: "Inter-Medium", Helvetica;
+  font-weight: 500;
+  color: #000000;
+  font-size: 128px;
+  letter-spacing: 0;
+  line-height: 192px;
+  white-space: nowrap;
+}
+
+.lobby .div {
+  margin-left: -636.0px;
+  height: 378px;
+  width: 1162px;
+  align-self: center;
+  margin-top: 103px;
+  font-family: "Inter-Medium", Helvetica;
+  font-weight: 500;
+  color: #000000;
+  font-size: 42px;
+  letter-spacing: 0;
+  line-height: 63px;
+}
+
+.lobby .start-button {
+  margin-left: 1650px;
+  width: 390px;
+  height: 390px;
+  position: relative;
+  margin-top: 281.0px;
+  background-color: #b5d0d1;
+  border-radius: 195px;
+}
+
+.lobby .text-wrapper-2 {
+  position: absolute;
+  width: 76.41%;
+  height: 31.54%;
+  top: 34.10%;
+  left: 11.79%;
+  font-family: "Inter-Medium", Helvetica;
+  font-weight: 500;
+  color: #000000;
+  font-size: 85px;
+  text-align: center;
+  letter-spacing: 0;
+  line-height: 127.5px;
+  white-space: nowrap;
+}
+/* Original CSS code should be injected here */
+
+.lobby .start-button {
+  cursor: pointer;
+  border: none;
+  transition: transform 0.2s ease, background-color 0.2s ease;
+}
+
+.lobby .start-button:hover {
+  background-color: #a0c0c1;
+  transform: scale(1.05);
+}
+
+.lobby .start-button:active {
+  transform: scale(0.98);
+}
+
+.lobby .start-button:focus {
+  outline: 3px solid #000000;
+  outline-offset: 4px;
+}
+
+.lobby .text-wrapper-2 {
+  pointer-events: none;
+}
