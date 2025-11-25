@@ -11,16 +11,66 @@
 
     <style>
         /* --- 1. GLOBAL SETUP --- */
-        body { margin: 0; background-color: #111; display: flex; justify-content: center; align-items: center; height: 100vh; overflow: hidden; font-family: "Inter", sans-serif; }
-        #game-container { width: 2360px; height: 1640px; position: relative; background-color: white; overflow: hidden; transform-origin: center; box-shadow: 0 0 50px rgba(0,0,0,0.5); }
+        body { 
+            margin: 0; 
+            background-color: #111; 
+            display: flex; 
+            justify-content: center; 
+            align-items: center; 
+            height: 100vh; 
+            width: 100vw;
+            overflow: hidden; 
+            font-family: "Inter", sans-serif; 
+            /* FIX 1: Force smooth font rendering */
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+        }
+
+        #game-container { 
+            width: 2360px; 
+            height: 1640px; 
+            position: relative; 
+            background-color: white; 
+            overflow: hidden; 
+            box-shadow: 0 0 50px rgba(0,0,0,0.5); 
+            
+            /* FIX 2: Better Scaling Origin */
+            transform-origin: center center;
+            
+            /* FIX 3: Hardware Acceleration to prevent blur */
+            will-change: transform;
+            backface-visibility: hidden;
+            transform: translateZ(0);
+        }
+
         .game-screen { width: 100%; height: 100%; display: none; position: absolute; top: 0; left: 0; }
         .flex-center { display: flex; justify-content: center; align-items: center; }
 
         /* --- 2. LOBBY & TEXT --- */
         #screen-p1 .lobby { background-color: #4AB7BA !important; width: 100%; height: 100%; display: flex; flex-direction: column; }
         #screen-p2 .lobby { background-color: #8C49B7 !important; height: 100%; }
-        .lobby .text-wrapper { margin-left: -503px; width: 1295px; align-self: center; margin-top: 132px; font-size: 128px; line-height: 192px; color: black; }
-        .lobby .div { margin-left: -636px; width: 1162px; align-self: center; margin-top: 103px; font-size: 42px; line-height: 63px; color: black; }
+        
+        /* Typography Tweaks */
+        .lobby .text-wrapper { 
+            margin-left: -503px; 
+            width: 1295px; 
+            align-self: center; 
+            margin-top: 132px; 
+            font-size: 128px; 
+            line-height: 1.2; /* Tighter line height */
+            color: black; 
+            font-weight: 700; /* Bolder for better scaling */
+        }
+        
+        .lobby .div { 
+            margin-left: -636px; 
+            width: 1162px; 
+            align-self: center; 
+            margin-top: 103px; 
+            font-size: 42px; 
+            line-height: 1.5; 
+            color: black; 
+        }
         
         .start-button { margin-left: 1650px; width: 390px; height: 390px; margin-top: 281px; border-radius: 50%; background-color: #b5d0d1; border: none; cursor: pointer; transition: opacity 0.3s; padding: 0 !important; }
         .start-button span { font-size: 85px; color: black; pointer-events: none; white-space: nowrap; }
@@ -56,37 +106,12 @@
         .sticky-yellow { position: absolute; left: 69px; top: 252px; width: 426px; height: 426px; transform: rotate(-15deg); transform-origin: top left; box-shadow: 10px 10px 20px rgba(0, 0, 0, 0.25); background-color: #FFECA8; z-index: 5; flex-direction: column; text-align: center; }
         .sticky-content { font-family: "Segoe Script", "Comic Sans MS", cursive; font-size: 36px; color: black; line-height: 1.5; }
         
-        /* UPDATED: Chat Messages with 100px padding from sides */
-        .chat-messages { 
-            position: absolute; 
-            top: 150px; 
-            left: 0; 
-            width: 100%; 
-            height: 1250px; 
-            overflow-y: auto; 
-            display: flex; 
-            flex-direction: column; 
-            gap: 24px; 
-            padding: 20px 100px; /* Top/Bottom: 20px, Left/Right: 100px */
-            box-sizing: border-box;
-        }
-        
+        .chat-messages { position: absolute; top: 150px; left: 0; width: 100%; height: 1250px; overflow-y: auto; display: flex; flex-direction: column; gap: 24px; padding: 20px 100px; box-sizing: border-box; }
         .message-entry { padding: 24px 32px; font-size: 32px; font-weight: 500; line-height: 48px; color: white; max-width: 70%; width: fit-content; word-wrap: break-word; }
         .msg-me { align-self: flex-end; background: #4AB7BA; border-radius: 24px 16px 4px 16px; }
         .msg-partner { align-self: flex-start; background: #8C49B7; border-radius: 16px 24px 16px 2px; }
 
-        /* UPDATED: Chat Input Area stretches full width */
-        .chat-input-area { 
-            position: absolute; 
-            left: 0px; 
-            bottom: 0px; /* Stick to bottom */
-            width: 100%; /* Full width */
-            height: 214px; 
-            background: #D9D9D9; 
-            display: flex; 
-            align-items: center; 
-            justify-content: center; 
-        }
+        .chat-input-area { position: absolute; left: 0px; bottom: 0px; width: 100%; height: 214px; background: #D9D9D9; display: flex; align-items: center; justify-content: center; }
         .message-form { width: 1800px; display: flex; gap: 30px; align-items: center; }
         .frame-7 { flex: 1; height: 96px; background: white; border-radius: 16px; border: none; padding: 0 32px; font-size: 32px; color: black; outline: none; }
         .frame-8 { width: 150px; height: 96px; background: #A5A5A5; border-radius: 16px; border: none; font-size: 32px; font-weight: 500; color: black; cursor: pointer; }
@@ -111,36 +136,49 @@
         .login-footer { left: 609px; top: 1267px; position: absolute; color: white; font-size: 40px; font-family: Inter; font-weight: 500; }
         #login-error-msg { left: 495px; top: 302px; position: absolute; color: #FF0000; font-size: 48px; font-family: Inter; font-weight: 500; line-height: 72px; display: none; }
         
-        /* Timer on Login Screen - Red */
         #timer-p2-login { color: #FF0000; }
 
-        /* Sidebars */
-        .sidebar-btn { cursor: pointer; width: 150px; height: 1643px; position: absolute; transition: transform 0.2s; z-index: 15; }
-        .sidebar-btn:hover { transform: scale(1.02); }
-        .sidebar-bg { width: 150px; height: 1643px; background: #272727; }
-        .arrow-shape { width: 85px; height: 85px; position: absolute; border: 7px #707070 solid; transform: rotate(45deg); transform-origin: top left; }
-        
-        #btn-to-login { top: 0; right: 0; }
-        #btn-to-login .sidebar-bg { border-top-left-radius: 45px; border-bottom-left-radius: 45px; }
-        #btn-to-login .arrow-shape { left: 32px; top: 779px; }
+        /* --- SIDEBAR BUTTONS --- */
+        .sidebar-area { 
+            position: absolute; 
+            width: 150px; 
+            height: 1643px; 
+            cursor: pointer; 
+            z-index: 15; 
+            transition: transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
+        }
+        .sidebar-area:hover { transform: scale(1.02); }
+        .sidebar-area:active { transform: scale(0.98); }
+
+        .sb-arrow {
+            width: 88px; 
+            height: 32px; 
+            position: absolute; 
+            border: 7px solid;
+            transform: rotate(45deg); 
+            transform-origin: top left;
+            transition: transform 0.3s ease;
+        }
+
+        #btn-to-login { right: 0; top: 0; }
+        #btn-to-login .sb-bg { width: 150px; height: 1643px; background: #272727; border-top-left-radius: 45px; border-bottom-left-radius: 45px; }
+        #btn-to-login .sb-arrow { left: 38.63px; top: 779px; border-color: white; }
+        #btn-to-login:hover .sb-arrow { transform: rotate(45deg) translate(5px, 5px); }
 
         #btn-to-chat { left: 150px; top: 1643px; transform: rotate(-180deg); transform-origin: top left; }
-        #btn-to-chat .sidebar-bg { background: white; border-top-left-radius: 45px; border-bottom-left-radius: 45px; }
-        #btn-to-chat .arrow-shape { left: 72px; top: 780px; }
         #btn-to-chat:hover { transform: rotate(-180deg) scale(1.02); }
+        #btn-to-chat .sb-bg { width: 150px; height: 1643px; background: white; border-top-left-radius: 45px; border-bottom-left-radius: 45px; }
+        #btn-to-chat .sb-arrow { left: 71.77px; top: 779.15px; border-color: #272727; }
+        #btn-to-chat:hover .sb-arrow { transform: rotate(45deg) translate(5px, 5px); }
 
         /* --- 6. SHUTDOWN SCREEN --- */
         #screen-shutdown-p2 { background-color: #272727; }
         .shutdown-container { width: 2160px; height: 1640px; position: relative; background: #272727; overflow: hidden; }
         #red-button-trigger { cursor: pointer; transition: transform 0.1s; position: absolute; left: 0; top: 0; width: 100%; height: 100%; }
 
-        /* Button Base (Dark Red) */
         .shutdown-btn-base { width: 783px; height: 783px; left: 716px; top: 1238px; position: absolute; transform: rotate(-90deg); transform-origin: top left; background: #A30000; box-shadow: 0px 4px 8px 8px rgba(0, 0, 0, 0.73); border-radius: 50%; pointer-events: none; }
-        
-        /* Button Top (Light Red) */
         .shutdown-btn-top { width: 753px; height: 753px; left: 725px; top: 1148px; position: absolute; transform: rotate(-90deg); transform-origin: top left; background: #FF0000; box-shadow: inset 4px 11px 5px 23px rgba(255, 255, 255, 0.38); border-radius: 50%; pointer-events: none; transition: all 0.1s ease-out; }
         
-        /* ANIMATION STATES */
         .btn-pressed { transform: rotate(-90deg) scale(0.9) !important; filter: brightness(0.8); }
         .shake-screen { animation: shake 0.5s cubic-bezier(.36,.07,.19,.97) both; }
         
@@ -219,7 +257,12 @@
             <main class="SENDER-chat">
                 <div class="menu-container" id="surrender-p2"><div class="surrender-closed"><div style="width: 150px; height: 150px; left: 0px; top: 0px; position: absolute; background: #707070; border-bottom-right-radius: 45px"></div><div style="width: 150px; height: 150px; left: 0px; top: 0px; position: absolute; background: #272727; border-bottom-right-radius: 45px"></div><div style="width: 100px; height: 103px; left: 25px; top: 23px; position: absolute; overflow: hidden"><div style="left: 20px; top: 44px; position: absolute; color: #FF0000; font-size: 14px; font-weight: 500;">surrender</div><div style="width: 56px; height: 22px; left: 43px; top: 34px; position: absolute; background: #707070"></div><div style="width: 42px; height: 22px; left: 40px; top: 0px; position: absolute; background: #707070"></div><div style="width: 33px; height: 80px; left: 0px; top: 22px; position: absolute; background: #707070"></div></div></div><div class="surrender-open flex-center">SURRENDER</div></div>
                 <time id="timer-p2" class="chat-timer">05:00</time>
-                <aside id="btn-to-login" class="sidebar-btn"><div class="sidebar-bg"></div><div class="arrow-shape"></div></aside>
+                
+                <aside id="btn-to-login" class="sidebar-area">
+                    <div class="sb-bg"></div>
+                    <div class="sb-arrow"></div>
+                </aside>
+                
                 <section id="p2-messages" class="chat-messages"></section>
                 <footer class="chat-input-area"><form id="p2-form" class="message-form"><input type="text" id="p2-input" class="frame-7" placeholder="Type your message" autocomplete="off" /><button type="submit" class="frame-8">Send</button></form></footer>
             </main>
@@ -237,7 +280,12 @@
                 <div class="login-label lbl-user">USERNAME</div>
                 <div class="login-label lbl-pass">PASSWORD</div>
                 <div class="login-footer">rest assured at B.E.C.© we take care of your data</div>
-                <div id="btn-to-chat" class="sidebar-btn"><div class="sidebar-bg"></div><div class="arrow-shape"></div></div>
+                
+                <div id="btn-to-chat" class="sidebar-area">
+                    <div class="sb-bg"></div>
+                    <div class="sb-arrow"></div>
+                </div>
+                
                 <div id="timer-p2-login" class="chat-timer">05:00</div>
             </div>
         </div>
