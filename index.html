@@ -37,18 +37,20 @@
             height: 1640px; 
             position: absolute; 
             
-            /* Start invisible to prevent flash */
+            /* Start invisible */
             visibility: hidden; 
             opacity: 0;
-            transition: opacity 0.5s ease, transform 0.4s cubic-bezier(0.2, 0.8, 0.2, 1); /* Matches iOS Keyboard speed */
+            
+            /* UPDATED TRANSITION: Faster and smoother for keyboard jumps */
+            transition: opacity 0.5s ease, transform 0.3s cubic-bezier(0.1, 0.9, 0.2, 1);
 
-            /* Start centered */
-            top: 50%; 
-            left: 50%; 
+            /* CHANGED ORIGIN: Top Left makes the math 100% accurate */
+            top: 0; 
+            left: 0; 
+            transform-origin: top left; 
             
             background-color: white; 
             overflow: hidden; 
-            transform-origin: center center; 
             box-shadow: 0 0 50px rgba(0,0,0,0.5); 
             
             will-change: transform;
@@ -353,67 +355,75 @@
 
         fetch('spam.txt').then(r => r.ok?r.text():Promise.reject()).then(t => botMessages=t.split(';').map(s=>s.trim()).filter(s=>s.length)).catch(e=>console.log("Using default spam"));
 
-        // --- 2. THE FIXED RESIZE LOGIC ---
+        // --- 2. THE FIXED RESIZE LOGIC (Top Left Origin) ---
         function updateLayout() {
             const vv = window.visualViewport;
             const w = window.innerWidth;
             const h = window.innerHeight;
 
-            // 1. Check if Keyboard is Open
-            // If the visual viewport is < 85% of full window height, keyboard is likely open.
+            // 1. Keyboard Detection
+            // If visual viewport is significantly smaller than window height
             const isKeyboardOpen = vv.height < (h * 0.85);
 
-            // 2. Recalculate Base Scale ONLY if keyboard is closed.
-            // This prevents the game from shrinking when keyboard pops up.
+            // 2. Calculate Scale (Lock it when keyboard opens)
             if (!isKeyboardOpen) {
                 cachedScale = Math.min(w / GAME_WIDTH, h / GAME_HEIGHT);
             }
 
-            // 3. Calculate Push Logic
+            // 3. Calculate Position
             if (!isKeyboardOpen) {
-                // NORMAL CENTERED STATE
-                els.container.style.transform = `translate(-50%, -50%) scale(${cachedScale})`;
-            } else {
-                // KEYBOARD OPEN STATE: PUSH UP
-                // We align the bottom of the game container to the bottom of the visible area.
+                // CENTERED STATE (Normal)
+                // With transform-origin: top left, we need manual centering math
+                const x = (w - (GAME_WIDTH * cachedScale)) / 2;
+                const y = (h - (GAME_HEIGHT * cachedScale)) / 2;
                 
-                // Height of game when scaled
-                const scaledGameH = GAME_HEIGHT * cachedScale;
+                els.container.style.transform = `translate(${x}px, ${y}px) scale(${cachedScale})`;
+            } 
+            else {
+                // KEYBOARD OPEN STATE (Push Up)
+                // 1. Center Horizontally
+                const x = (w - (GAME_WIDTH * cachedScale)) / 2;
                 
-                // Where is the bottom of the game normally? (It's centered at 50% height)
-                const normalBottom = (h / 2) + (scaledGameH / 2);
+                // 2. Align Bottom to Keyboard Top
+                // We want the visual bottom of the game to sit at the keyboard line.
+                // Visual Height of Game = GAME_HEIGHT * cachedScale
+                // Keyboard Line = vv.height + vv.offsetTop (Top of keyboard relative to document)
                 
-                // Where is the bottom of the visible area?
-                const visibleBottom = vv.height; // This is relative to the top of the browser
+                const visualGameHeight = GAME_HEIGHT * cachedScale;
+                const keyboardLine = vv.height + vv.offsetTop;
                 
-                // How much do we need to shift up?
-                let shift = normalBottom - visibleBottom;
+                // Position Y so that (y + visualGameHeight) = keyboardLine
+                let y = keyboardLine - visualGameHeight;
                 
-                // Add a small buffer so it's not touching the keys exactly
-                shift += 10; 
+                // Add tiny buffer (10px)
+                y += 10;
 
-                // Apply transform:
-                // translate(-50% - 0px, -50% - shift pixels)
-                els.container.style.transform = `translate(-50%, calc(-50% - ${shift}px)) scale(${cachedScale})`;
+                els.container.style.transform = `translate(${x}px, ${y}px) scale(${cachedScale})`;
                 
-                // Auto-scroll chat to bottom if open
+                // Auto scroll chat
                 if(els.p1Messages) els.p1Messages.scrollTop = els.p1Messages.scrollHeight;
                 if(els.p2Messages) els.p2Messages.scrollTop = els.p2Messages.scrollHeight;
             }
 
-            // Reveal game after first calculation to prevent flash
+            // Reveal after calculation
             els.container.classList.add('loaded');
         }
 
-        // Listen for all possible resize events
+        // Detect resizing (Keyboard open/close)
         if (window.visualViewport) {
             window.visualViewport.addEventListener('resize', updateLayout);
             window.visualViewport.addEventListener('scroll', updateLayout);
         }
         window.addEventListener('resize', updateLayout);
         window.addEventListener('orientationchange', () => setTimeout(updateLayout, 100));
-        
-        // Initial Call
+
+        // Block native scroll interference when keyboard opens
+        window.addEventListener('scroll', () => {
+           if(document.activeElement.tagName === 'INPUT') {
+               window.scrollTo(0,0);
+           }
+        });
+
         updateLayout();
         // ---------------------------
 
@@ -472,7 +482,6 @@
 
         socket.on('game_won', () => { 
             clearInterval(timerInterval); 
-            // Only exit fullscreen if NOT on iOS (prevents UI bugs)
             if(!(/iPad|iPhone|iPod/.test(navigator.userAgent))) exitFullScreen(); 
             showScreen('victory'); 
         });
@@ -485,7 +494,6 @@
         });
 
         function enterFullScreen() {
-            // Disable native fullscreen on iOS to prevent keyboard conflicts
             if(/iPad|iPhone|iPod/.test(navigator.userAgent)) return;
             const docEl = document.documentElement;
             if(docEl.requestFullscreen) docEl.requestFullscreen();
