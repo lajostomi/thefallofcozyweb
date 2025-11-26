@@ -11,16 +11,66 @@
 
     <style>
         /* --- 1. GLOBAL SETUP --- */
-        body { margin: 0; background-color: #111; display: flex; justify-content: center; align-items: center; height: 100vh; overflow: hidden; font-family: "Inter", sans-serif; }
-        #game-container { width: 2360px; height: 1640px; position: relative; background-color: white; overflow: hidden; transform-origin: center; box-shadow: 0 0 50px rgba(0,0,0,0.5); }
+        body { 
+            margin: 0; 
+            background-color: #111; 
+            display: flex; 
+            justify-content: center; 
+            align-items: center; 
+            height: 100vh; 
+            width: 100vw;
+            overflow: hidden; 
+            font-family: "Inter", sans-serif; 
+            /* FIX 1: Force smooth font rendering */
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+        }
+
+        #game-container { 
+            width: 2360px; 
+            height: 1640px; 
+            position: relative; 
+            background-color: white; 
+            overflow: hidden; 
+            box-shadow: 0 0 50px rgba(0,0,0,0.5); 
+            
+            /* FIX 2: Better Scaling Origin */
+            transform-origin: center center;
+            
+            /* FIX 3: Hardware Acceleration to prevent blur */
+            will-change: transform;
+            backface-visibility: hidden;
+            transform: translateZ(0);
+        }
+
         .game-screen { width: 100%; height: 100%; display: none; position: absolute; top: 0; left: 0; }
         .flex-center { display: flex; justify-content: center; align-items: center; }
 
         /* --- 2. LOBBY & TEXT --- */
         #screen-p1 .lobby { background-color: #4AB7BA !important; width: 100%; height: 100%; display: flex; flex-direction: column; }
         #screen-p2 .lobby { background-color: #8C49B7 !important; height: 100%; }
-        .lobby .text-wrapper { margin-left: -503px; width: 1295px; align-self: center; margin-top: 132px; font-size: 128px; line-height: 192px; color: black; }
-        .lobby .div { margin-left: -636px; width: 1162px; align-self: center; margin-top: 103px; font-size: 42px; line-height: 63px; color: black; }
+        
+        /* Typography Tweaks */
+        .lobby .text-wrapper { 
+            margin-left: -503px; 
+            width: 1295px; 
+            align-self: center; 
+            margin-top: 132px; 
+            font-size: 128px; 
+            line-height: 1.2; /* Tighter line height */
+            color: black; 
+            font-weight: 700; /* Bolder for better scaling */
+        }
+        
+        .lobby .div { 
+            margin-left: -636px; 
+            width: 1162px; 
+            align-self: center; 
+            margin-top: 103px; 
+            font-size: 42px; 
+            line-height: 1.5; 
+            color: black; 
+        }
         
         .start-button { margin-left: 1650px; width: 390px; height: 390px; margin-top: 281px; border-radius: 50%; background-color: #b5d0d1; border: none; cursor: pointer; transition: opacity 0.3s; padding: 0 !important; }
         .start-button span { font-size: 85px; color: black; pointer-events: none; white-space: nowrap; }
@@ -360,37 +410,14 @@
             setTimeout(() => { socket.emit('trigger_shutdown'); }, 1000); 
         });
 
-        socket.on('game_won', () => { 
-            clearInterval(timerInterval); 
-            exitFullScreen(); // Exit FS on Win
-            showScreen('victory'); 
-        });
-        
+        socket.on('game_won', () => { clearInterval(timerInterval); showScreen('victory'); });
         socket.on('game_over', (data) => { 
             clearInterval(timerInterval); 
-            exitFullScreen(); // Exit FS on Lose
             if(data.reason) els.gameoverReason.innerText = data.reason;
             showScreen('gameover'); 
         });
 
-        // --- FULL SCREEN LOGIC ---
-        function enterFullScreen() {
-            const docEl = document.documentElement;
-            if(docEl.requestFullscreen) docEl.requestFullscreen();
-            else if(docEl.webkitRequestFullscreen) docEl.webkitRequestFullscreen(); 
-            else if(docEl.msRequestFullscreen) docEl.msRequestFullscreen(); 
-        }
-
-        function exitFullScreen() {
-            if(document.exitFullscreen) document.exitFullscreen();
-            else if(document.webkitExitFullscreen) document.webkitExitFullscreen();
-            else if(document.msExitFullscreen) document.msExitFullscreen();
-        }
-
         function setReady(id) {
-            // Trigger Fullscreen on Start
-            enterFullScreen();
-
             const b = document.getElementById(id); 
             const t = b.querySelector('span');
             t.innerText = "WAITING..."; 
