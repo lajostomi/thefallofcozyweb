@@ -2,7 +2,6 @@
 <html lang="en">
   <head>
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
-    
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="apple-mobile-web-app-title" content="Cozy Web">
@@ -20,14 +19,15 @@
 
     <style>
         /* --- GLOBAL SETUP --- */
-        body { 
-            margin: 0; 
-            background-color: #111; 
-            width: 100vw; 
-            height: 100dvh; 
-            overflow: hidden; 
-            font-family: "Inter", sans-serif; 
-            position: fixed; 
+        html, body {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            background-color: #111;
+            overflow: hidden; /* Strict overflow hiding */
+            font-family: "Inter", sans-serif;
+            position: fixed; /* Locks the body in place */
             touch-action: none;
         }
 
@@ -35,13 +35,13 @@
             width: 2360px; 
             height: 1640px; 
             position: absolute; 
-            top: 50%; 
-            left: 50%; 
+            top: 0;
+            left: 0;
             background-color: white; 
             overflow: hidden; 
-            transform-origin: center center; 
+            transform-origin: top left; /* CHANGED: Easier to calculate visual viewport from top-left */
             box-shadow: 0 0 50px rgba(0,0,0,0.5); 
-            transition: transform 0.3s ease-out; /* Smooth movement for keyboard handling */
+            /* Removed transition to make keyboard resize instant/snappy */
         }
 
         .game-screen { width: 100%; height: 100%; display: none; position: absolute; top: 0; left: 0; }
@@ -296,6 +296,10 @@
         let myRole = 0;
         let timerInterval = null;
         
+        // --- 1. DETECT IOS & DISABLE NATIVE FULLSCREEN ---
+        // Native RequestFullscreen crashes/exits on iOS when keyboard opens.
+        const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+        
         const storySlides = [ 'intro-01.png', 'intro-02.png', 'intro-03.png', 'intro-04.png', 'intro-05.png', 'intro-06.png', 'intro-07.png' ];
         let currentSlideIndex = 0;
         let botMessages = ["SYSTEM FAILURE", "ERROR 404", "DATA CORRUPT"];
@@ -329,38 +333,36 @@
 
         fetch('spam.txt').then(r => r.ok?r.text():Promise.reject()).then(t => botMessages=t.split(';').map(s=>s.trim()).filter(s=>s.length)).catch(e=>console.log("Using default spam"));
 
-        // --- UPDATED RESIZE LOGIC WITH FOCUS FIX ---
+        // --- 2. VISUAL VIEWPORT SCALING (THE FIX) ---
         function resizeGame() {
-            // STOP resizing if user is typing (prevents jumping)
-            if (document.activeElement.tagName === 'INPUT') return;
+            // Use visualViewport if available (modern iOS/Android), otherwise fallback to window
+            const viewport = window.visualViewport;
+            const w = viewport ? viewport.width : window.innerWidth;
+            const h = viewport ? viewport.height : window.innerHeight;
+            const offsetLeft = viewport ? viewport.offsetLeft : 0;
+            const offsetTop = viewport ? viewport.offsetTop : 0;
 
-            const windowWidth = window.innerWidth;
-            const windowHeight = window.innerHeight;
             const gameWidth = 2360;
             const gameHeight = 1640;
-            const scale = Math.min(windowWidth / gameWidth, windowHeight / gameHeight); 
+
+            // Calculate scale to fit in the CURRENT visible area (above keyboard)
+            const scale = Math.min(w / gameWidth, h / gameHeight);
             
-            els.container.style.transform = `translate(-50%, -50%) scale(${scale})`;
+            // Center the game in the visible area
+            const x = offsetLeft + (w - gameWidth * scale) / 2;
+            const y = offsetTop + (h - gameHeight * scale) / 2;
+
+            els.container.style.transform = `translate(${x}px, ${y}px) scale(${scale})`;
         }
         
+        // Listen to Visual Viewport events (fires when keyboard opens/closes)
+        if (window.visualViewport) {
+            window.visualViewport.addEventListener('resize', resizeGame);
+            window.visualViewport.addEventListener('scroll', resizeGame);
+        }
         window.addEventListener('resize', resizeGame);
         window.addEventListener('orientationchange', () => { setTimeout(resizeGame, 100); });
         
-        // --- KEYBOARD HANDLING ---
-        // Shifts the view up slightly when typing so the keyboard doesn't hide the game
-        document.querySelectorAll('input').forEach(input => {
-            input.addEventListener('focus', () => {
-                // Manually trigger one resize just in case, but keep scale
-                const scale = Math.min(window.innerWidth / 2360, window.innerHeight / 1640);
-                // Shift the container UP (-70% instead of -50%)
-                els.container.style.transform = `translate(-50%, -70%) scale(${scale})`;
-            });
-            input.addEventListener('blur', () => {
-                // Reset to center
-                setTimeout(resizeGame, 100);
-            });
-        });
-
         resizeGame();
         // ---------------------------
 
@@ -431,6 +433,11 @@
         });
 
         function enterFullScreen() {
+            // --- 3. IOS SAFETY CHECK ---
+            // If we are on iOS, DO NOT call the native fullscreen API.
+            // It conflicts with the keyboard. We rely on CSS instead.
+            if(isIOS) return;
+
             const docEl = document.documentElement;
             if(docEl.requestFullscreen) docEl.requestFullscreen();
             else if(docEl.webkitRequestFullscreen) docEl.webkitRequestFullscreen(); 
@@ -438,6 +445,7 @@
         }
 
         function exitFullScreen() {
+            if(isIOS) return; // Do nothing on iOS
             if(document.exitFullscreen) document.exitFullscreen();
             else if(document.webkitExitFullscreen) document.webkitExitFullscreen();
             else if(document.msExitFullscreen) document.msExitFullscreen();
