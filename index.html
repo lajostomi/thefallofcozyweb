@@ -29,6 +29,7 @@
             font-family: "Inter", sans-serif;
             position: fixed; 
             touch-action: none;
+            -webkit-font-smoothing: antialiased; /* Crisp text on iOS */
         }
 
         #game-container { 
@@ -36,7 +37,12 @@
             height: 1640px; 
             position: absolute; 
             
-            /* Start perfectly centered */
+            /* Start invisible to prevent 'flash of giant content' */
+            visibility: hidden; 
+            opacity: 0;
+            transition: opacity 0.5s ease;
+
+            /* Start centered */
             top: 50%; 
             left: 50%; 
             
@@ -45,12 +51,16 @@
             transform-origin: center center; 
             box-shadow: 0 0 50px rgba(0,0,0,0.5); 
             
-            /* Smooth slide animation for keyboard */
-            transition: transform 0.3s cubic-bezier(0.2, 0.8, 0.2, 1); 
-            
-            /* Fix for iOS rendering glitches */
+            /* PERFORMANCE OPTIMIZATIONS */
+            will-change: transform;
             backface-visibility: hidden;
             perspective: 1000px;
+        }
+
+        /* Helper to show game once JS Loads */
+        #game-container.loaded {
+            visibility: visible;
+            opacity: 1;
         }
 
         .game-screen { width: 100%; height: 100%; display: none; position: absolute; top: 0; left: 0; }
@@ -308,7 +318,8 @@
         // Configuration
         const GAME_WIDTH = 2360;
         const GAME_HEIGHT = 1640;
-        let cachedScale = 1; // Stores the scale when keyboard is closed
+        let cachedScale = 1; 
+        let resizeRequestId = null;
 
         // --- CONTENT SETUP ---
         const storySlides = [ 'intro-01.png', 'intro-02.png', 'intro-03.png', 'intro-04.png', 'intro-05.png', 'intro-06.png', 'intro-07.png' ];
@@ -344,52 +355,53 @@
 
         fetch('spam.txt').then(r => r.ok?r.text():Promise.reject()).then(t => botMessages=t.split(';').map(s=>s.trim()).filter(s=>s.length)).catch(e=>console.log("Using default spam"));
 
-        // --- 1. THE MESSENGER STYLE RESIZE LOGIC ---
-        function updateLayout() {
-            if (!window.visualViewport) {
-                fallbackResize();
+        // --- OPTIMIZED MESSENGER-STYLE RESIZE LOGIC ---
+        function performLayoutUpdate() {
+            // Visual Viewport logic for modern devices
+            const vv = window.visualViewport;
+            const windowW = window.innerWidth;
+            const windowH = window.innerHeight;
+
+            if (!vv) {
+                // Fallback for ancient browsers
+                const s = Math.min(windowW / GAME_WIDTH, windowH / GAME_HEIGHT);
+                els.container.style.transform = `translate(-50%, -50%) scale(${s})`;
+                els.container.classList.add('loaded');
                 return;
             }
 
-            const vv = window.visualViewport;
-            const windowH = window.innerHeight;
-            
-            // Check if keyboard is likely open (Visual Viewport is significantly smaller than Window)
+            // Keyboard detection: If visual height is significantly smaller than window height
             const isKeyboardOpen = vv.height < (windowH - 100);
 
-            // 1. CALCULATE SCALE (Only if keyboard is CLOSED)
-            // We lock the scale so the UI doesn't shrink when typing
             if (!isKeyboardOpen) {
-                cachedScale = Math.min(window.innerWidth / GAME_WIDTH, windowH / GAME_HEIGHT);
+                // Keyboard closed: Recalculate full scale
+                cachedScale = Math.min(windowW / GAME_WIDTH, windowH / GAME_HEIGHT);
             }
 
-            // 2. CALCULATE POSITION
-            // We want to center the game in the VISUAL viewport (the space above keyboard)
+            // Calculate offset to center the game in the visible space
             const visualCenterY = vv.offsetTop + (vv.height / 2);
             const windowCenterY = windowH / 2;
-
-            // The difference is how much we need to shift the game container
             const offsetY = visualCenterY - windowCenterY;
 
-            // 3. APPLY TRANSFORM
-            // translate(-50%, -50%) centers it on the anchor.
-            // translate(0, offsetY) moves it to the new visual center.
-            // We force scale(cachedScale) to keep size consistent.
+            // Apply Transform
             els.container.style.transform = `translate(-50%, calc(-50% + ${offsetY}px)) scale(${cachedScale})`;
             
-            // Scroll chat to bottom if keyboard opens
+            // Show container after first calculation
+            els.container.classList.add('loaded');
+
+            // Scroll chat to bottom if open
             if(isKeyboardOpen) {
                 if(els.p1Messages) els.p1Messages.scrollTop = els.p1Messages.scrollHeight;
                 if(els.p2Messages) els.p2Messages.scrollTop = els.p2Messages.scrollHeight;
             }
         }
 
-        function fallbackResize() {
-            const scale = Math.min(window.innerWidth / GAME_WIDTH, window.innerHeight / GAME_HEIGHT);
-            els.container.style.transform = `translate(-50%, -50%) scale(${scale})`;
+        // Debounced/Throttled Resize
+        function updateLayout() {
+            if (resizeRequestId) cancelAnimationFrame(resizeRequestId);
+            resizeRequestId = requestAnimationFrame(performLayoutUpdate);
         }
 
-        // Listeners for the "Messenger" behavior
         if (window.visualViewport) {
             window.visualViewport.addEventListener('resize', updateLayout);
             window.visualViewport.addEventListener('scroll', updateLayout);
@@ -398,7 +410,8 @@
         window.addEventListener('orientationchange', () => setTimeout(updateLayout, 100));
 
         // Initial Call
-        updateLayout();
+        performLayoutUpdate();
+
         // ---------------------------
 
         function showScreen(name) {
