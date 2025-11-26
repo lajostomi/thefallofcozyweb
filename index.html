@@ -2,6 +2,11 @@
 <html lang="en">
   <head>
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+    
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Cozy Web">
+
     <meta charset="utf-8" />
     <title>The Fall of Cozy Web</title>
     
@@ -14,7 +19,7 @@
     <link rel="stylesheet" href="style.css" />
 
     <style>
-        /* --- GLOBAL SETUP (UPDATED FOR IPAD) --- */
+        /* --- GLOBAL SETUP --- */
         body { 
             margin: 0; 
             background-color: #111; 
@@ -36,6 +41,7 @@
             overflow: hidden; 
             transform-origin: center center; 
             box-shadow: 0 0 50px rgba(0,0,0,0.5); 
+            transition: transform 0.3s ease-out; /* Smooth movement for keyboard handling */
         }
 
         .game-screen { width: 100%; height: 100%; display: none; position: absolute; top: 0; left: 0; }
@@ -57,7 +63,7 @@
         
         .centered-screen { display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center; padding: 100px; box-sizing: border-box; }
         
-        /* BRIEFING SPECIFICS */
+        /* BRIEFING */
         #screen-briefing { transition: background-color 0.3s; }
         #task-title { font-size: 100px; font-weight: bold; color: black; margin-bottom: 50px; }
         #task-instruction { font-size: 70px; color: black; max-width: 1800px; line-height: 1.4; }
@@ -80,10 +86,9 @@
         
         .sticky-yellow { position: absolute; left: 69px; top: 252px; width: 426px; height: 426px; transform: rotate(-15deg); transform-origin: top left; box-shadow: 10px 10px 20px rgba(0, 0, 0, 0.25); background-color: #FFECA8; z-index: 5; flex-direction: column; text-align: center; }
         
-        /* --- 3. UPDATED FONT STYLE --- */
         .sticky-content { 
-            font-family: 'Patrick Hand', cursive; /* New readable font */
-            font-size: 48px; /* Bumped size slightly for readability */
+            font-family: 'Patrick Hand', cursive; 
+            font-size: 48px; 
             color: black; 
             line-height: 1.4; 
         }
@@ -324,8 +329,11 @@
 
         fetch('spam.txt').then(r => r.ok?r.text():Promise.reject()).then(t => botMessages=t.split(';').map(s=>s.trim()).filter(s=>s.length)).catch(e=>console.log("Using default spam"));
 
-        // --- UPDATED RESIZE LOGIC ---
+        // --- UPDATED RESIZE LOGIC WITH FOCUS FIX ---
         function resizeGame() {
+            // STOP resizing if user is typing (prevents jumping)
+            if (document.activeElement.tagName === 'INPUT') return;
+
             const windowWidth = window.innerWidth;
             const windowHeight = window.innerHeight;
             const gameWidth = 2360;
@@ -338,6 +346,21 @@
         window.addEventListener('resize', resizeGame);
         window.addEventListener('orientationchange', () => { setTimeout(resizeGame, 100); });
         
+        // --- KEYBOARD HANDLING ---
+        // Shifts the view up slightly when typing so the keyboard doesn't hide the game
+        document.querySelectorAll('input').forEach(input => {
+            input.addEventListener('focus', () => {
+                // Manually trigger one resize just in case, but keep scale
+                const scale = Math.min(window.innerWidth / 2360, window.innerHeight / 1640);
+                // Shift the container UP (-70% instead of -50%)
+                els.container.style.transform = `translate(-50%, -70%) scale(${scale})`;
+            });
+            input.addEventListener('blur', () => {
+                // Reset to center
+                setTimeout(resizeGame, 100);
+            });
+        });
+
         resizeGame();
         // ---------------------------
 
