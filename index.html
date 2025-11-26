@@ -25,9 +25,9 @@
             width: 100%;
             height: 100%;
             background-color: #111;
-            overflow: hidden; /* Strict overflow hiding */
+            overflow: hidden; 
             font-family: "Inter", sans-serif;
-            position: fixed; /* Locks the body in place */
+            position: fixed; 
             touch-action: none;
         }
 
@@ -35,13 +35,22 @@
             width: 2360px; 
             height: 1640px; 
             position: absolute; 
-            top: 0;
-            left: 0;
+            
+            /* Start perfectly centered */
+            top: 50%; 
+            left: 50%; 
+            
             background-color: white; 
             overflow: hidden; 
-            transform-origin: top left; /* CHANGED: Easier to calculate visual viewport from top-left */
+            transform-origin: center center; 
             box-shadow: 0 0 50px rgba(0,0,0,0.5); 
-            /* Removed transition to make keyboard resize instant/snappy */
+            
+            /* Smooth slide animation for keyboard */
+            transition: transform 0.3s cubic-bezier(0.2, 0.8, 0.2, 1); 
+            
+            /* Fix for iOS rendering glitches */
+            backface-visibility: hidden;
+            perspective: 1000px;
         }
 
         .game-screen { width: 100%; height: 100%; display: none; position: absolute; top: 0; left: 0; }
@@ -296,10 +305,12 @@
         let myRole = 0;
         let timerInterval = null;
         
-        // --- 1. DETECT IOS & DISABLE NATIVE FULLSCREEN ---
-        // Native RequestFullscreen crashes/exits on iOS when keyboard opens.
-        const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
-        
+        // Configuration
+        const GAME_WIDTH = 2360;
+        const GAME_HEIGHT = 1640;
+        let cachedScale = 1; // Stores the scale when keyboard is closed
+
+        // --- CONTENT SETUP ---
         const storySlides = [ 'intro-01.png', 'intro-02.png', 'intro-03.png', 'intro-04.png', 'intro-05.png', 'intro-06.png', 'intro-07.png' ];
         let currentSlideIndex = 0;
         let botMessages = ["SYSTEM FAILURE", "ERROR 404", "DATA CORRUPT"];
@@ -333,37 +344,61 @@
 
         fetch('spam.txt').then(r => r.ok?r.text():Promise.reject()).then(t => botMessages=t.split(';').map(s=>s.trim()).filter(s=>s.length)).catch(e=>console.log("Using default spam"));
 
-        // --- 2. VISUAL VIEWPORT SCALING (THE FIX) ---
-        function resizeGame() {
-            // Use visualViewport if available (modern iOS/Android), otherwise fallback to window
-            const viewport = window.visualViewport;
-            const w = viewport ? viewport.width : window.innerWidth;
-            const h = viewport ? viewport.height : window.innerHeight;
-            const offsetLeft = viewport ? viewport.offsetLeft : 0;
-            const offsetTop = viewport ? viewport.offsetTop : 0;
+        // --- 1. THE MESSENGER STYLE RESIZE LOGIC ---
+        function updateLayout() {
+            if (!window.visualViewport) {
+                fallbackResize();
+                return;
+            }
 
-            const gameWidth = 2360;
-            const gameHeight = 1640;
-
-            // Calculate scale to fit in the CURRENT visible area (above keyboard)
-            const scale = Math.min(w / gameWidth, h / gameHeight);
+            const vv = window.visualViewport;
+            const windowH = window.innerHeight;
             
-            // Center the game in the visible area
-            const x = offsetLeft + (w - gameWidth * scale) / 2;
-            const y = offsetTop + (h - gameHeight * scale) / 2;
+            // Check if keyboard is likely open (Visual Viewport is significantly smaller than Window)
+            const isKeyboardOpen = vv.height < (windowH - 100);
 
-            els.container.style.transform = `translate(${x}px, ${y}px) scale(${scale})`;
+            // 1. CALCULATE SCALE (Only if keyboard is CLOSED)
+            // We lock the scale so the UI doesn't shrink when typing
+            if (!isKeyboardOpen) {
+                cachedScale = Math.min(window.innerWidth / GAME_WIDTH, windowH / GAME_HEIGHT);
+            }
+
+            // 2. CALCULATE POSITION
+            // We want to center the game in the VISUAL viewport (the space above keyboard)
+            const visualCenterY = vv.offsetTop + (vv.height / 2);
+            const windowCenterY = windowH / 2;
+
+            // The difference is how much we need to shift the game container
+            const offsetY = visualCenterY - windowCenterY;
+
+            // 3. APPLY TRANSFORM
+            // translate(-50%, -50%) centers it on the anchor.
+            // translate(0, offsetY) moves it to the new visual center.
+            // We force scale(cachedScale) to keep size consistent.
+            els.container.style.transform = `translate(-50%, calc(-50% + ${offsetY}px)) scale(${cachedScale})`;
+            
+            // Scroll chat to bottom if keyboard opens
+            if(isKeyboardOpen) {
+                if(els.p1Messages) els.p1Messages.scrollTop = els.p1Messages.scrollHeight;
+                if(els.p2Messages) els.p2Messages.scrollTop = els.p2Messages.scrollHeight;
+            }
         }
-        
-        // Listen to Visual Viewport events (fires when keyboard opens/closes)
+
+        function fallbackResize() {
+            const scale = Math.min(window.innerWidth / GAME_WIDTH, window.innerHeight / GAME_HEIGHT);
+            els.container.style.transform = `translate(-50%, -50%) scale(${scale})`;
+        }
+
+        // Listeners for the "Messenger" behavior
         if (window.visualViewport) {
-            window.visualViewport.addEventListener('resize', resizeGame);
-            window.visualViewport.addEventListener('scroll', resizeGame);
+            window.visualViewport.addEventListener('resize', updateLayout);
+            window.visualViewport.addEventListener('scroll', updateLayout);
         }
-        window.addEventListener('resize', resizeGame);
-        window.addEventListener('orientationchange', () => { setTimeout(resizeGame, 100); });
-        
-        resizeGame();
+        window.addEventListener('resize', updateLayout);
+        window.addEventListener('orientationchange', () => setTimeout(updateLayout, 100));
+
+        // Initial Call
+        updateLayout();
         // ---------------------------
 
         function showScreen(name) {
@@ -433,9 +468,8 @@
         });
 
         function enterFullScreen() {
-            // --- 3. IOS SAFETY CHECK ---
-            // If we are on iOS, DO NOT call the native fullscreen API.
-            // It conflicts with the keyboard. We rely on CSS instead.
+            // Disable native fullscreen on iOS to prevent keyboard conflicts
+            const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
             if(isIOS) return;
 
             const docEl = document.documentElement;
@@ -445,7 +479,9 @@
         }
 
         function exitFullScreen() {
-            if(isIOS) return; // Do nothing on iOS
+            const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+            if(isIOS) return;
+            
             if(document.exitFullscreen) document.exitFullscreen();
             else if(document.webkitExitFullscreen) document.webkitExitFullscreen();
             else if(document.msExitFullscreen) document.msExitFullscreen();
