@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
   <head>
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
     <meta charset="utf-8" />
     <title>The Fall of Cozy Web</title>
     
@@ -10,9 +10,36 @@
     <link rel="stylesheet" href="style.css" />
 
     <style>
-        /* --- 1. GLOBAL SETUP --- */
-        body { margin: 0; background-color: #111; display: flex; justify-content: center; align-items: center; height: 100vh; overflow: hidden; font-family: "Inter", sans-serif; }
-        #game-container { width: 2360px; height: 1640px; position: relative; background-color: white; overflow: hidden; transform-origin: center; box-shadow: 0 0 50px rgba(0,0,0,0.5); }
+        /* --- 1. GLOBAL SETUP (UPDATED FOR IPAD) --- */
+        body { 
+            margin: 0; 
+            background-color: #111; 
+            /* Use dvh (dynamic viewport height) for iOS address bar handling */
+            width: 100vw; 
+            height: 100dvh; 
+            overflow: hidden; 
+            font-family: "Inter", sans-serif; 
+            /* Prevents scrolling/bouncing on iOS */
+            position: fixed; 
+            touch-action: none;
+        }
+
+        #game-container { 
+            width: 2360px; 
+            height: 1640px; 
+            
+            /* UPDATED: Absolute Centering */
+            position: absolute; 
+            top: 50%; 
+            left: 50%; 
+            
+            background-color: white; 
+            overflow: hidden; 
+            /* Origin set to center for scaling */
+            transform-origin: center center; 
+            box-shadow: 0 0 50px rgba(0,0,0,0.5); 
+        }
+
         .game-screen { width: 100%; height: 100%; display: none; position: absolute; top: 0; left: 0; }
         .flex-center { display: flex; justify-content: center; align-items: center; }
 
@@ -292,12 +319,29 @@
 
         fetch('spam.txt').then(r => r.ok?r.text():Promise.reject()).then(t => botMessages=t.split(';').map(s=>s.trim()).filter(s=>s.length)).catch(e=>console.log("Using default spam"));
 
+        // --- UPDATED RESIZE LOGIC ---
         function resizeGame() {
-            const scale = Math.min(window.innerWidth / 2360, window.innerHeight / 1640); 
-            els.container.style.transform = `scale(${scale})`;
+            // Get current browser dimensions
+            const windowWidth = window.innerWidth;
+            const windowHeight = window.innerHeight;
+
+            // Your fixed game dimensions
+            const gameWidth = 2360;
+            const gameHeight = 1640;
+
+            // Calculate scale to fit
+            const scale = Math.min(windowWidth / gameWidth, windowHeight / gameHeight); 
+            
+            // Apply scale AND translate to center (compensating for top:50%/left:50% in CSS)
+            els.container.style.transform = `translate(-50%, -50%) scale(${scale})`;
         }
+        
         window.addEventListener('resize', resizeGame);
+        // Add orientation support for iPad rotation
+        window.addEventListener('orientationchange', () => { setTimeout(resizeGame, 100); });
+        
         resizeGame();
+        // ---------------------------
 
         function showScreen(name) {
             document.querySelectorAll('.game-screen').forEach(el => el.style.display = 'none');
